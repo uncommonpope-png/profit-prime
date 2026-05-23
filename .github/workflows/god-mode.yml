@@ -1,15 +1,15 @@
-name: God Mode — Weekly Market Research
+name: God Mode — Market Intelligence Engine
 
 on:
   schedule:
-    # Every Sunday at 2:00 AM UTC
-    - cron: '0 2 * * 0'
+    # Runs every 12 hours: midnight and noon UTC
+    - cron: '0 0,12 * * *'
   workflow_dispatch:
     inputs:
-      report_name:
-        description: 'Custom report file name'
+      cycle:
+        description: 'Scan cycle (full or quick)'
         required: false
-        default: 'god-mode-report.json'
+        default: 'full'
 
 jobs:
   research:
@@ -25,34 +25,42 @@ jobs:
       - name: Install dependencies
         run: npm init -y
 
-      - name: Run God Mode — 6 sub-agent categories + 2 meta analyses
+      - name: Run God Mode — Web Scanner + AI Analyst
         run: node god-mode.cjs
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          REPORT_FILE: god-mode-report.json
+          REPORT_DIR: ${{ github.workspace }}
+          CYCLE: ${{ github.event.inputs.cycle || 'full' }}
 
-      - name: Generate Market Report Summary
+      - name: Generate Human-Readable Summary
         run: |
-          echo "## God Mode Market Report" > report-summary.md
+          CYCLE_DATE=$(date +%Y-%m-%d)
+          echo "## God Mode — Market Intelligence Scan" > report-summary.md
           echo "" >> report-summary.md
-          echo "Generated: $(date)" >> report-summary.md
-          echo "" >> report-summary.md
-          echo '```json' >> report-summary.md
-          head -c 3000 god-mode-report.json >> report-summary.md
+          echo "Date: $CYCLE_DATE" >> report-summary.md
+          echo "Cycle: ${{ github.event.inputs.cycle || 'full' }}" >> report-summary.md
           echo "" >> report-summary.md
           echo '```' >> report-summary.md
+          node -e "
+            const r = require('./god-mode-latest.json');
+            console.log('Sources scanned:', r.sources?.liveSources || '?');
+            console.log('Products found:', r.totalProducts || '?');
+            console.log('Trends:', (r.trends || []).join(', '));
+            console.log('Gaps:', (r.gaps || []).join(', '));
+          " 2>/dev/null || echo "Report summary not available"
+          echo '```' >> report-summary.md
 
-      - name: Upload Report Artifact
+      - name: Upload Full Report
         uses: actions/upload-artifact@v4
         with:
           name: god-mode-report-${{ github.run_id }}
           path: |
-            god-mode-report.json
+            god-mode-*.json
             report-summary.md
 
       - name: Commit Report to Repo
         run: |
           git config user.name "Profit Prime Bot"
           git config user.email "bot@profit-prime.ai"
-          git add god-mode-report.json
-          git diff --staged --quiet || (git commit -m "god-mode: weekly market report $(date +%Y-%m-%d)" && git push)
+          git add god-mode-*.json god-mode-latest.json
+          git diff --staged --quiet || (git commit -m "god-mode: market scan $(date +%Y-%m-%d_%H:%M)" && git push)
