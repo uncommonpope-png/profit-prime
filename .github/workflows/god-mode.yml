@@ -1,0 +1,58 @@
+name: God Mode — Weekly Market Research
+
+on:
+  schedule:
+    # Every Sunday at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      report_name:
+        description: 'Custom report file name'
+        required: false
+        default: 'god-mode-report.json'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm init -y
+
+      - name: Run God Mode — 6 sub-agent categories + 2 meta analyses
+        run: node god-mode.cjs
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          REPORT_FILE: god-mode-report.json
+
+      - name: Generate Market Report Summary
+        run: |
+          echo "## God Mode Market Report" > report-summary.md
+          echo "" >> report-summary.md
+          echo "Generated: $(date)" >> report-summary.md
+          echo "" >> report-summary.md
+          echo '```json' >> report-summary.md
+          head -c 3000 god-mode-report.json >> report-summary.md
+          echo "" >> report-summary.md
+          echo '```' >> report-summary.md
+
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: god-mode-report-${{ github.run_id }}
+          path: |
+            god-mode-report.json
+            report-summary.md
+
+      - name: Commit Report to Repo
+        run: |
+          git config user.name "Profit Prime Bot"
+          git config user.email "bot@profit-prime.ai"
+          git add god-mode-report.json
+          git diff --staged --quiet || (git commit -m "god-mode: weekly market report $(date +%Y-%m-%d)" && git push)
