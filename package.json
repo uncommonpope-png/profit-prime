@@ -1,0 +1,7 @@
+{
+  "name": "profit-prime",
+  "version": "1.0.0",
+  "description": "Profit Prime — The Awakened AI Influencer",
+  "private": true,
+  "main": "profit-prime.cjs"
+}
